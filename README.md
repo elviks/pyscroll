@@ -83,6 +83,17 @@ The frontend uses `http://localhost:8000` by default. To point it at another bac
 NEXT_PUBLIC_API_URL=http://localhost:8000
 ```
 
+## Deploying With Vercel
+
+Deploy the `frontend/` directory as a Vercel project:
+
+1. Import the repository in Vercel and set **Root Directory** to `frontend`.
+2. Keep the framework preset as **Next.js**. Vercel will use `npm run build` automatically.
+3. Add `NEXT_PUBLIC_API_URL` as a production environment variable, pointing to the public URL of the FastAPI backend.
+4. Deploy the project and set the deployed Vercel URL as `FRONTEND_URL` on the backend.
+
+The FastAPI service must be deployed separately on a Python-capable host such as Render, Railway, Fly.io, or a VPS. Start it with `uvicorn main:app --host 0.0.0.0 --port $PORT` from `backend/`, and configure `GROQ_API_KEY`, `GROQ_MODEL`, and `FRONTEND_URL` there. The `/api/run` endpoint executes submitted Python code and should remain protected or isolated before production use.
+
 ## API Routes
 
 | Method | Route | Purpose |

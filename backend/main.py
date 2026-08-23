@@ -21,12 +21,21 @@ except ImportError:  # pragma: no cover
 
 app = FastAPI(title="PyScroll API", version="1.0.0")
 
+allowed_origins = [
+    "http://localhost:3000",
+    "http://127.0.0.1:3000",
+]
+frontend_url = os.getenv("FRONTEND_URL")
+if frontend_url:
+    allowed_origins.extend(
+        origin.strip()
+        for origin in frontend_url.split(",")
+        if origin.strip()
+    )
+
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=[
-        "http://localhost:3000",
-        "http://127.0.0.1:3000",
-    ],
+    allow_origins=allowed_origins,
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
