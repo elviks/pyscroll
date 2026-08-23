@@ -1,0 +1,50 @@
+export type TipCategory =
+  | "idioms"
+  | "strings"
+  | "iterables"
+  | "syntax"
+  | "dicts"
+  | "sorting"
+  | "functions"
+  | "gotchas"
+  | "builtins"
+  | "performance"
+  | "stdlib"
+  | "typing"
+  | "exceptions"
+  | "sequences"
+  | "debugging"
+  | "style"
+  | "oop"
+  | "concurrency"
+  | "testing"
+  | "packaging"
+  | "security"
+  | "tooling"
+  | "python"
+  | "django"
+  | "fastapi"
+  | "flask"
+  | "pytorch"
+  | "tensorflow"
+  | "scikit-learn"
+  | "pandas"
+  | "numpy"
+  | "scrapy"
+  | "requests"
+  | "sqlalchemy"
+  | "pytest"
+  | "asyncio"
+  | "celery"
+  | "airflow"
+  | "pydantic"
+  | "streamlit";
+
+export interface Tip {
+  id: number;
+  title: string;
+  definition: string;
+  example: string;
+  usecase: string;
+  category: string;
+}
