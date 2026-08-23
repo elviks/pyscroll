@@ -27,15 +27,19 @@ allowed_origins = [
 ]
 frontend_url = os.getenv("FRONTEND_URL")
 if frontend_url:
-    allowed_origins.extend(
-        origin.strip()
-        for origin in frontend_url.split(",")
-        if origin.strip()
-    )
+    for origin in frontend_url.split(","):
+        origin = origin.strip().rstrip("/")
+        if origin:
+            allowed_origins.append(origin)
+            if origin.startswith("https://"):
+                allowed_origins.append(origin.replace("https://", "http://", 1))
+            elif origin.startswith("http://"):
+                allowed_origins.append(origin.replace("http://", "https://", 1))
 
 app.add_middleware(
     CORSMiddleware,
     allow_origins=allowed_origins,
+    allow_origin_regex=r"^(https?://)?(localhost|127\.0\.0\.1)(:\d+)?$",
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -50,6 +54,11 @@ SYSTEM_PROMPT = (
     "When sharing code, prefer small, runnable examples in markdown code blocks."
     "AND MOST IMPORTANT PART: answer in short and simple way."
 )
+
+
+@app.get("/api/health")
+def health():
+    return {"status": "ok"}
 
 
 @app.get("/api/tips")

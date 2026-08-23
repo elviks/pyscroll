@@ -2,15 +2,35 @@ import type { Tip } from "@/lib/types";
 
 export const API_URL = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8000";
 
+async function apiFetch(path: string, timeoutMs = 15000): Promise<Response> {
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), timeoutMs);
+  try {
+    const res = await fetch(`${API_URL}${path}`, { signal: controller.signal });
+    return res;
+  } finally {
+    clearTimeout(timer);
+  }
+}
+
 export async function fetchTips(): Promise<Tip[]> {
   try {
-    const res = await fetch(`${API_URL}/api/tips`);
+    const res = await apiFetch("/api/tips", 15000);
     if (!res.ok) throw new Error(`HTTP ${res.status}`);
     const data = (await res.json()) as { tips: Tip[] };
     if (Array.isArray(data.tips) && data.tips.length > 0) return data.tips;
     throw new Error("empty tips payload");
   } catch {
     return FALLBACK_TIPS;
+  }
+}
+
+export async function healthCheck(): Promise<boolean> {
+  try {
+    const res = await apiFetch("/api/health", 10000);
+    return res.ok;
+  } catch {
+    return false;
   }
 }
 
