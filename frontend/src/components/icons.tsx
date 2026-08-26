@@ -163,7 +163,7 @@ export function PythonLogo({
                src="/pyscroll.png"
                alt="PyScroll"
                className={className ?? "h-5 w-5"}
-               style={icon ? { objectFit: "cover", objectPosition: "left" } : { objectFit: "contain" }}
+                style={icon ? { objectFit: "cover", objectPosition: "center" } : { objectFit: "contain" }}
                draggable={false}
                {...props}
           />
@@ -285,6 +285,28 @@ export function SparkIcon({
                {...props}
           >
                <path d="M12 2l1.9 5.7L19.6 9.6l-5.7 1.9L12 17.2l-1.9-5.7L4.4 9.6l5.7-1.9zM19 14l.9 2.6 2.6.9-2.6.9L19 21l-.9-2.6-2.6-.9 2.6-.9z" />
+          </svg>
+     );
+}
+
+export function AskIcon({
+     className,
+     ...props
+}: React.SVGProps<SVGSVGElement>) {
+     return (
+          <svg
+               viewBox="0 0 24 24"
+               className={className ?? "h-7 w-7"}
+               fill="none"
+               stroke="currentColor"
+               strokeWidth={1.7}
+               strokeLinecap="round"
+               strokeLinejoin="round"
+               {...props}
+          >
+               <path d="M7.9 20A9 9 0 1 0 4 16.1L2 22Z" />
+               <path d="M12 17h.01" strokeWidth={2.4} />
+               <path d="M9.5 11a3.5 3.5 0 0 1 5 0" />
           </svg>
      );
 }

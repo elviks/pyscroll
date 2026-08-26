@@ -5,6 +5,7 @@ import { motion } from "framer-motion";
 import type { Tip } from "@/lib/types";
 import { PythonCode } from "@/lib/highlight";
 import {
+     AskIcon,
      CommentIcon,
      HeartIcon,
      RepostIcon,
@@ -20,6 +21,7 @@ interface Props {
      onLike: (tip: Tip) => void;
      onComment: (tip: Tip) => void;
      onRepost: (tip: Tip) => void;
+     onAskTutor?: (tip: Tip) => void;
 }
 
 function TipCardInner({
@@ -32,6 +34,7 @@ function TipCardInner({
      onLike,
      onComment,
      onRepost,
+     onAskTutor,
 }: Props) {
      return (
           <section
@@ -197,6 +200,15 @@ function TipCardInner({
                          >
                               <RepostIcon />
                          </RailButton>
+                         {onAskTutor && (
+                              <RailButton
+                                   activeClass="text-accent"
+                                   onClick={() => onAskTutor(tip)}
+                                   ariaLabel="Ask Tutor"
+                              >
+                                   <AskIcon />
+                              </RailButton>
+                         )}
                     </div>
                </motion.div>
           </section>

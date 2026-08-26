@@ -135,24 +135,282 @@ function CodeBlock({ code }: { code: string }) {
 
 /* ── Message content renderer ── */
 
+const MD_RE =
+     /(\*\*(.+?)\*\*)|(\*(.+?)\*)|(`(.+?)`)|(\[([^\]]+)\]\(([^)]+)\))/g;
+
+function renderInline(text: string): React.ReactNode[] {
+     const out: React.ReactNode[] = [];
+     let last = 0;
+     let m: RegExpExecArray | null;
+     MD_RE.lastIndex = 0;
+     while ((m = MD_RE.exec(text)) !== null) {
+          if (m.index > last)
+               out.push(text.slice(last, m.index));
+          if (m[2]) {
+               out.push(
+                    <strong
+                         key={m.index}
+                         className="font-semibold text-fg"
+                    >
+                         {m[2]}
+                    </strong>,
+               );
+          } else if (m[4]) {
+               out.push(
+                    <em
+                         key={m.index}
+                         className="italic text-fg/80"
+                    >
+                         {m[4]}
+                    </em>,
+               );
+          } else if (m[6]) {
+               out.push(
+                    <code
+                         key={m.index}
+                         className="rounded-md bg-white/8 px-1.5 py-0.5 font-mono text-[12px] text-accent/90"
+                    >
+                         {m[6]}
+                    </code>,
+               );
+          } else if (m[8] && m[9]) {
+               out.push(
+                    <a
+                         key={m.index}
+                         href={m[9]}
+                         target="_blank"
+                         rel="noreferrer"
+                         className="text-accent underline decoration-accent/30 underline-offset-2 hover:decoration-accent/60"
+                    >
+                         {m[8]}
+                    </a>,
+               );
+          }
+          last = m.index + m[0].length;
+     }
+     if (last < text.length) out.push(text.slice(last));
+     return out;
+}
+
+function renderTable(lines: string[]) {
+     const parseRow = (row: string) =>
+          row
+               .split("|")
+               .slice(1, -1)
+               .map((c) => c.trim());
+     const headers = parseRow(lines[0]);
+     const rows = lines.slice(2).map(parseRow);
+     return (
+          <div className="my-2 overflow-x-auto rounded-xl border border-white/6">
+               <table className="w-full font-mono text-[11px]">
+                    <thead>
+                         <tr className="border-b border-white/6 bg-white/[0.03]">
+                              {headers.map((h, i) => (
+                                   <th
+                                        key={i}
+                                        className="px-3 py-2 text-left font-medium text-fg/80"
+                                   >
+                                        {renderInline(h)}
+                                   </th>
+                              ))}
+                         </tr>
+                    </thead>
+                    <tbody>
+                         {rows.map((row, ri) => (
+                              <tr
+                                   key={ri}
+                                   className="border-b border-white/4 last:border-0"
+                              >
+                                   {row.map((cell, ci) => (
+                                        <td
+                                             key={ci}
+                                             className="px-3 py-2 text-muted/70"
+                                        >
+                                             {renderInline(
+                                                  cell,
+                                             )}
+                                        </td>
+                                   ))}
+                              </tr>
+                         ))}
+                    </tbody>
+               </table>
+          </div>
+     );
+}
+
 function renderContent(content: string) {
      const blocks = content.split(/```/g);
-     return blocks.map((block, i) => {
-          if (i % 2 === 1) {
+     let key = 0;
+     return blocks.map((block, bi) => {
+          if (bi % 2 === 1) {
                const langLine = block.split("\n")[0];
                const code = block
                     .slice(langLine.length)
                     .replace(/^\n/, "");
-               return <CodeBlock key={i} code={code} />;
+               return <CodeBlock key={bi} code={code} />;
           }
-          return (
-               <span
-                    key={i}
-                    className="whitespace-pre-wrap wrap-break-word"
-               >
-                    {block}
-               </span>
-          );
+          const lines = block.split("\n");
+          const elements: React.ReactNode[] = [];
+          let i = 0;
+          while (i < lines.length) {
+               const line = lines[i];
+
+               /* ── Table ── */
+               if (
+                    line.includes("|") &&
+                    i + 1 < lines.length &&
+                    /^\|[\s\-:|]+\|$/.test(lines[i + 1])
+               ) {
+                    const tableLines: string[] = [line];
+                    i += 1;
+                    while (
+                         i < lines.length &&
+                         lines[i].includes("|")
+                    ) {
+                         tableLines.push(lines[i]);
+                         i += 1;
+                    }
+                    elements.push(
+                         <div key={key++} className="my-1">
+                              {renderTable(tableLines)}
+                         </div>,
+                    );
+                    continue;
+               }
+
+               /* ── Headings ── */
+               const headingMatch = line.match(
+                    /^(#{1,3})\s+(.+)/,
+               );
+               if (headingMatch) {
+                    const level = headingMatch[1].length;
+                    const cls =
+                         level === 1
+                              ? "text-[15px] font-bold text-fg mt-3 mb-1"
+                              : level === 2
+                                ? "text-[14px] font-semibold text-fg mt-2.5 mb-1"
+                                : "text-[13px] font-semibold text-fg/90 mt-2 mb-0.5";
+                    elements.push(
+                         <div key={key++} className={cls}>
+                              {renderInline(
+                                   headingMatch[2],
+                              )}
+                         </div>,
+                    );
+                    i += 1;
+                    continue;
+               }
+
+               /* ── Horizontal rule ── */
+               if (/^-{3,}$/.test(line.trim())) {
+                    elements.push(
+                         <hr
+                              key={key++}
+                              className="my-2 border-0 border-t border-white/10"
+                         />,
+                    );
+                    i += 1;
+                    continue;
+               }
+
+               /* ── Bullet list ── */
+               if (/^[-*]\s+/.test(line)) {
+                    while (
+                         i < lines.length &&
+                         /^[-*]\s+/.test(lines[i])
+                    ) {
+                         const text = lines[i].replace(
+                              /^[-*]\s+/,
+                              "",
+                         );
+                         elements.push(
+                              <div
+                                   key={key++}
+                                   className="ml-3 flex gap-2 py-0.5"
+                              >
+                                   <span className="mt-1.5 h-1 w-1 shrink-0 rounded-full bg-accent/60" />
+                                   <span className="whitespace-pre-wrap">
+                                        {renderInline(text)}
+                                   </span>
+                              </div>,
+                         );
+                         i += 1;
+                    }
+                    continue;
+               }
+
+               /* ── Numbered list ── */
+               if (/^\d+[.)]\s+/.test(line)) {
+                    while (
+                         i < lines.length &&
+                         /^\d+[.)]\s+/.test(lines[i])
+                    ) {
+                         const numMatch = lines[i].match(
+                              /^(\d+[.)])\s+(.+)/,
+                         );
+                         if (numMatch) {
+                              elements.push(
+                                   <div
+                                        key={key++}
+                                        className="ml-3 flex gap-2 py-0.5"
+                                   >
+                                        <span className="shrink-0 font-mono text-[11px] text-accent/70">
+                                             {numMatch[1]}
+                                        </span>
+                                        <span className="whitespace-pre-wrap">
+                                             {renderInline(
+                                                  numMatch[2],
+                                             )}
+                                        </span>
+                                   </div>,
+                              );
+                         }
+                         i += 1;
+                    }
+                    continue;
+               }
+
+               /* ── Blank line ── */
+               if (line.trim() === "") {
+                    i += 1;
+                    continue;
+               }
+
+               /* ── Paragraph — collect consecutive non-special lines ── */
+               const paraLines: string[] = [];
+               while (
+                    i < lines.length &&
+                    lines[i].trim() !== "" &&
+                    !lines[i].match(/^#{1,3}\s/) &&
+                    !lines[i].match(/^-{3,}$/) &&
+                    !lines[i].match(/^[-*]\s+/) &&
+                    !lines[i].match(/^\d+[.)]\s+/) &&
+                    !(
+                         lines[i].includes("|") &&
+                         i + 1 < lines.length &&
+                         /^\|[\s\-:|]+\|$/.test(
+                              lines[i + 1],
+                         )
+                    )
+               ) {
+                    paraLines.push(lines[i]);
+                    i += 1;
+               }
+               if (paraLines.length > 0) {
+                    elements.push(
+                         <span
+                              key={key++}
+                              className="mb-1.5 block whitespace-pre-wrap wrap-break-word text-[13px] leading-relaxed"
+                         >
+                              {renderInline(
+                                   paraLines.join("\n"),
+                              )}
+                         </span>,
+                    );
+               }
+          }
+          return elements;
      });
 }
 
@@ -334,6 +592,16 @@ export default function MessagesPage() {
           getUserMeta()
                .then((m) => setName(m.name))
                .catch(() => {});
+
+          /* Pre-fill from ?q= param */
+          const q = new URLSearchParams(
+               window.location.search,
+          ).get("q");
+          if (q) {
+               // eslint-disable-next-line react-hooks/set-state-in-effect
+               setInput(q);
+               textareaRef.current?.focus();
+          }
      }, []);
 
      /* Auto-scroll */
@@ -377,6 +645,13 @@ export default function MessagesPage() {
           setInput("");
           if (textareaRef.current)
                textareaRef.current.style.height = "auto";
+          /* Clear ?q= from URL after sending */
+          if (window.location.search)
+               window.history.replaceState(
+                    null,
+                    "",
+                    window.location.pathname,
+               );
           setStreaming(true);
           sendingRef.current = true;
           const gen = streamGenRef.current;
@@ -605,7 +880,10 @@ export default function MessagesPage() {
                     {/* Avatar with online dot */}
                     <div className="relative">
                          <div className="flex h-11 w-11 items-center justify-center rounded-full bg-linear-to-br from-accent/20 to-accent/4 ring-1 ring-accent/20">
-                              <PythonLogo className="h-15" />
+                              <PythonLogo
+                                   className="h-15"
+                                   icon
+                              />
                          </div>
                          <span className="absolute -bottom-0.5 -right-0.5 h-3.5 w-3.5 rounded-full border-2 border-bg bg-emerald-400 shadow-sm shadow-emerald-500/30" />
                     </div>
@@ -848,15 +1126,14 @@ export default function MessagesPage() {
                               className="min-h-10 max-h-35 flex-1 resize-none bg-green-900/10 rounded-2xl p-2 text-[13px] leading-relaxed outline-none placeholder:text-muted/40"
                               autoComplete="off"
                          />
-                         <motion.button
+                         <button
                               onClick={send}
                               disabled={
                                    !input.trim() ||
                                    streaming
                               }
-                              whileTap={{ scale: 0.92 }}
                               aria-label="Send"
-                              className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-full transition-all ${
+                              className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-full transition-all active:scale-90 ${
                                    input.trim() &&
                                    !streaming
                                         ? "bg-accent text-white"
@@ -864,7 +1141,7 @@ export default function MessagesPage() {
                               } disabled:cursor-not-allowed`}
                          >
                               <SendIcon className="h-4 w-4" />
-                         </motion.button>
+                         </button>
                     </div>
                     <p className="mt-1.5 text-center text-[10px] text-muted/25">
                          <kbd className="rounded border border-line/40 px-1 py-0.5 font-mono text-[9px]">

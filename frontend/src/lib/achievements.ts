@@ -514,6 +514,151 @@ async function commentCats(): Promise<number> {
   }
 }
 
+/* ── helpers for harder achievements ── */
+
+async function longestChatSession(): Promise<number> {
+  try {
+    const chat = await getChatHistory();
+    const sorted = chat.map((m) => m.timestamp).sort((a, b) => a - b);
+    let best = 0;
+    let run = 0;
+    let prev = 0;
+    for (const ts of sorted) {
+      run = run === 0 || ts - prev <= 30 * 60 * 1000 ? run + 1 : 1;
+      if (run > best) best = run;
+      prev = ts;
+    }
+    return best;
+  } catch {
+    return 0;
+  }
+}
+
+async function playgroundRunsToday(): Promise<number> {
+  try {
+    const m = await getUserMeta();
+    const today = todayStr();
+    if (m.last_active_date !== today) return 0;
+    return m.playground_runs;
+  } catch {
+    return 0;
+  }
+}
+
+async function allCategoriesFavorited(): Promise<boolean> {
+  try {
+    const [ids, tips] = await Promise.all([getFavoriteTipIds(), fetchTips()]);
+    const allCats = new Set(tips.map((t) => t.category));
+    const favCats = new Set(ids.map((id) => tips.find((t) => t.id === id)?.category).filter(Boolean));
+    return allCats.size > 0 && favCats.size === allCats.size;
+  } catch {
+    return false;
+  }
+}
+
+async function commentedAllCategories(): Promise<boolean> {
+  try {
+    const [ids, tips] = await Promise.all([getCommentedTipIds(), fetchTips()]);
+    const allCats = new Set(tips.map((t) => t.category));
+    const commentCats = new Set(ids.map((id) => tips.find((t) => t.id === id)?.category).filter(Boolean));
+    return allCats.size > 0 && commentCats.size === allCats.size;
+  } catch {
+    return false;
+  }
+}
+
+async function allSevenDaysActive(): Promise<boolean> {
+  const days = await activityDayTypes();
+  return [0, 1, 2, 3, 4, 5, 6].every((d) => days.has(d));
+}
+
+async function errorExpert(): Promise<boolean> {
+  try {
+    const chat = await getChatHistory();
+    const mentions = chat.filter(
+      (m) =>
+        m.role === "user" &&
+        /error|exception|traceback|bug/i.test(m.content),
+    ).length;
+    return mentions >= 10;
+  } catch {
+    return false;
+  }
+}
+
+async function tutor50Session(): Promise<boolean> {
+  try {
+    const chat = await getChatHistory();
+    const sorted = chat.map((m) => m.timestamp).sort((a, b) => a - b);
+    let run = 0;
+    let prev = 0;
+    for (const ts of sorted) {
+      run = run === 0 || ts - prev <= 30 * 60 * 1000 ? run + 1 : 1;
+      if (run >= 50) return true;
+      prev = ts;
+    }
+    return false;
+  } catch {
+    return false;
+  }
+}
+
+async function unlockedCount(): Promise<number> {
+  try {
+    const all = await getAchievements();
+    return all.length;
+  } catch {
+    return 0;
+  }
+}
+
+async function longCommentCount(): Promise<number> {
+  try {
+    const comments = await getAllComments();
+    return comments.filter((c) => c.comment_text.length >= 100).length;
+  } catch {
+    return 0;
+  }
+}
+
+async function chatActiveDaysCount(): Promise<number> {
+  try {
+    const chat = await getChatHistory();
+    const days = new Set(
+      chat
+        .filter((m) => m.role === "user")
+        .map((m) => new Date(m.timestamp).toDateString()),
+    );
+    return days.size;
+  } catch {
+    return 0;
+  }
+}
+
+async function socialTrifecta(): Promise<boolean> {
+  try {
+    const [favIds, repIds, comIds] = await Promise.all([
+      getFavoriteTipIds(),
+      getRepostTipIds(),
+      getCommentedTipIds(),
+    ]);
+    return favIds.some((id) => repIds.includes(id) && comIds.includes(id));
+  } catch {
+    return false;
+  }
+}
+
+async function repostAllCategories(): Promise<boolean> {
+  try {
+    const [ids, tips] = await Promise.all([getRepostTipIds(), fetchTips()]);
+    const allCats = new Set(tips.map((t) => t.category));
+    const repCats = new Set(ids.map((id) => tips.find((t) => t.id === id)?.category).filter(Boolean));
+    return allCats.size > 0 && repCats.size === allCats.size;
+  } catch {
+    return false;
+  }
+}
+
 export const ACHIEVEMENTS: AchievementDef[] = [
   // ---- original nine ----
   {
@@ -1068,6 +1213,171 @@ export const ACHIEVEMENTS: AchievementDef[] = [
     (m) => m.playground_runs,
     (n) => `Ran Python ${n} times in the playground.`,
   ),
+
+  // ---- harder achievements ----
+  {
+    id: "social_trifecta",
+    Icon: Trophy,
+    name: "Social Trifecta",
+    description: "Liked, reposted, AND commented on the same tip.",
+    check: socialTrifecta,
+  },
+  {
+    id: "prolific_writer",
+    Icon: Feather,
+    name: "Prolific Writer",
+    description: "Wrote 50 comments in total.",
+    check: atLeast(countAllComments, 50),
+  },
+  {
+    id: "essay_collector",
+    Icon: ScrollText,
+    name: "Essay Collector",
+    description: "Wrote 5 comments that are 100+ characters each.",
+    check: atLeast(longCommentCount, 5),
+  },
+  {
+    id: "marathon_chat",
+    Icon: MessagesSquare,
+    name: "Marathon Chat",
+    description: "Had a single chat session of 25+ messages.",
+    check: atLeast(longestChatSession, 25),
+  },
+  {
+    id: "tutor_50_session",
+    Icon: GraduationCap,
+    name: "Marathon Tutor",
+    description: "Had a single chat session of 50+ messages.",
+    check: tutor50Session,
+  },
+  {
+    id: "error_expert",
+    Icon: Bug,
+    name: "Error Expert",
+    description: "Asked the tutor 10 questions mentioning errors.",
+    check: errorExpert,
+  },
+  {
+    id: "week_7_active",
+    Icon: CalendarDays,
+    name: "Every Single Day",
+    description: "Was active on all 7 days of the week.",
+    check: allSevenDaysActive,
+  },
+  {
+    id: "category_completionist",
+    Icon: Puzzle,
+    name: "Category Completionist",
+    description: "Favorited at least one tip in every category.",
+    check: allCategoriesFavorited,
+  },
+  {
+    id: "comment_completionist",
+    Icon: MessageCircle,
+    name: "Comment Completionist",
+    description: "Commented in every category.",
+    check: commentedAllCategories,
+  },
+  {
+    id: "repost_completionist",
+    Icon: RefreshCcw,
+    name: "Repost Completionist",
+    description: "Reposted at least one tip in every category.",
+    check: repostAllCategories,
+  },
+  {
+    id: "achievement_hunter_50",
+    Icon: Award,
+    name: "Achievement Hunter",
+    description: "Unlocked 50 achievements.",
+    check: atLeast(unlockedCount, 50),
+  },
+  {
+    id: "achievement_hunter_80",
+    Icon: Crown,
+    name: "Achievement Legend",
+    description: "Unlocked 80 achievements.",
+    check: atLeast(unlockedCount, 80),
+  },
+  {
+    id: "playground_25_day",
+    Icon: SquareTerminal,
+    name: "Code Binger",
+    description: "Ran Python 25 times in a single day.",
+    check: atLeast(playgroundRunsToday, 25),
+  },
+  {
+    id: "tutor_7_days",
+    Icon: Bell,
+    name: "Tutor Devotee",
+    description: "Asked the tutor on 7 different days.",
+    check: atLeast(chatActiveDaysCount, 7),
+  },
+  {
+    id: "deep_commenter",
+    Icon: NotebookPen,
+    name: "Deep Commenter",
+    description: "Left 20+ comments in total.",
+    check: atLeast(countAllComments, 20),
+  },
+  {
+    id: "streak_30_hard",
+    Icon: Flame,
+    name: "Monthly Master",
+    description: "Maintained a 30-day streak.",
+    check: atLeast(longestDayStreak, 30),
+  },
+  {
+    id: "likes_500_hard",
+    Icon: Heart,
+    name: "Heart Collector",
+    description: "Liked 500 tips in total.",
+    check: atLeast(() => getUserMeta().then((m) => m.total_likes), 500),
+  },
+  {
+    id: "time_100h",
+    Icon: Orbit,
+    name: "Python Monk",
+    description: "Spent 100 hours in the app in total.",
+    check: atLeast(() => getUserMeta().then((m) => m.total_time), 100 * 3600),
+  },
+  {
+    id: "views_2000",
+    Icon: Telescope,
+    name: "Feed Destroyer",
+    description: "Viewed 2000 tips in total.",
+    check: atLeast(() => getUserMeta().then((m) => m.views_total), 2000),
+  },
+  {
+    id: "night_weekend_hard",
+    Icon: MoonStar,
+    name: "Weekend Night Owl",
+    description: "Was active past midnight on a weekend.",
+    check: async () => {
+      try {
+        const [favs, reps, comments, chat] = await Promise.all([
+          getFavorites(),
+          getReposts(),
+          getAllComments(),
+          getChatHistory(),
+        ]);
+        const stamps = [
+          ...favs.map((f) => f.timestamp),
+          ...reps.map((r) => r.timestamp),
+          ...comments.map((c) => c.timestamp),
+          ...chat.map((c) => c.timestamp),
+        ];
+        return stamps.some((t) => {
+          const d = new Date(t);
+          const day = d.getDay();
+          const h = d.getHours();
+          return (day === 0 || day === 6) && h >= 0 && h < 4;
+        });
+      } catch {
+        return false;
+      }
+    },
+  },
 ];
 
 export async function checkAchievements(): Promise<string[]> {

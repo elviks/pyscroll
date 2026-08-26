@@ -18,6 +18,7 @@ import {
 import { checkAchievements } from "@/lib/achievements";
 import { feedCategoryOf, feedLabel } from "@/lib/categories";
 import dynamic from "next/dynamic";
+import { useRouter } from "next/navigation";
 import TipCard from "@/components/TipCard";
 const CommentSheet = dynamic(() => import("@/components/CommentSheet"), { ssr: false });
 const AchievementToast = dynamic(() => import("@/components/AchievementToast"), { ssr: false });
@@ -116,6 +117,7 @@ function buildBatch(source: Tip[]): FeedItem[] {
 }
 
 export default function FeedPage() {
+  const router = useRouter();
   const [tips, setTips] = useState<Tip[]>(FALLBACK_TIPS);
   const [offline, setOffline] = useState(false);
   const [favs, setFavs] = useState<Set<number>>(new Set());
@@ -506,6 +508,11 @@ export default function FeedPage() {
     }
   }
 
+  function handleAskTutor(tip: Tip) {
+    const prompt = `Explain Python ${tip.category}: "${tip.title}" like I'm 10 years old. Use a simple analogy, break it into 3-4 key parts, give one real-world example, and end with a 1-sentence summary.`;
+    router.push(`/messages?q=${encodeURIComponent(prompt)}`);
+  }
+
   function handleToastDone() {
     setToast(null);
     if (queuedToast.current) {
@@ -548,6 +555,7 @@ export default function FeedPage() {
             onLike={handleLike}
             onComment={(t) => setCommentFor(t)}
             onRepost={handleRepost}
+            onAskTutor={handleAskTutor}
           />
         ))}
 
